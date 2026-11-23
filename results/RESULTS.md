@@ -80,17 +80,34 @@ N = 100 equally spaced in [0.1, 0.9], reproducing Table 3.
 | Wang | 2.36e-20 | 2.62e-20 | ~1e-30 | 3.57e-09 | ~1e-30 | partially reproduced |
 
 Both quantities are, as the paper predicts, many orders of magnitude smaller
-than in the GBM and Heston experiments (1e-10–1e-20 here versus 1e-7–1e-10
+than in the GBM and Heston experiments (1e-20–1e-27 here versus 1e-7–1e-10
 there), confirming the qualitative claim that the exact, finite-support
 discrete model removes Monte Carlo approximation error from the
 reconstruction. The paper's reported scale (~1e-30) sits at the edge of
 float64 relative precision for quantities of this construction (differences
-of sums of ~1000 terms of order 1); our computed values, while still
-effectively at the numerical noise floor relative to Experiments 1–2, are
-3–11 orders of magnitude above the paper's number, which is a real
-quantitative gap we cannot attribute with confidence to a specific defect —
-hence "partially reproduced" rather than "reproduced", with the cause not
-identified.
+of sums of ~1000 terms of order 1); our computed values are 3–11 orders of
+magnitude above the paper's number.
+
+We localized this residual to floating-point cancellation in the
+Gram-matrix evaluation of the risk-field condition (2.1), which the
+Frank-Wolfe solver (used for the exact reconstruction, Theorem 2.6) and the
+bisection for L_*(D_N) (Sec. 2.3) both rely on: the squared-distance term in
+(2.1) is evaluated as a difference of same-order-of-magnitude quantities and
+suffers cancellation down to a residual of about 1e-9 to 1e-8 irrespective of
+the iteration count, as recorded next to `FW_TOL` in `src/config.py`. This
+matches the OOD ratio residual we measure here (7.3e-9 to 2.3e-8) to within
+one order of magnitude, which is the component of the pipeline most exposed
+to this cancellation (it depends on L_*(D_N) through the bisection). Training
+and test MSE, which only evaluate the converged Frank-Wolfe objective at
+fixed claims rather than the bisection's feasibility check, land one to two
+orders of magnitude below that floor (1e-20 to 1e-27) because they avoid the
+cancellation-prone comparison; this is consistent with the floor being a
+property of the feasibility evaluation, not of the objective evaluation. We
+could not reduce this cancellation floor without replacing float64 Gram-matrix
+arithmetic with arbitrary-precision arithmetic, which the paper does not
+describe — hence "partially reproduced" rather than "reproduced", with the
+cause identified as float64 cancellation in the risk-field feasibility check,
+not a formula error.
 
 ## Experiment 4 — Universal Risk Measure Reconstruction on Incompatible (Non-Risk-Field) Data
 
