@@ -8,7 +8,7 @@ g(0) = 0, g(1) = 1, used in the spectral-risk-measure representation
     rho_g(X) = -sum_i x_(i) * (g(i/I) - g((i - 1) / I)),
 
 where x_(1) <= ... <= x_(I) are the sorted values of X on a discrete,
-equally-weighted sample of size I (Sec. 3, implementation notes).
+equally-weighted sample of size I (Sec. 3, p. 10-11).
 
 The acceptance sets defining ES, power spectral, exponential spectral and
 Wang risk measures (p. 10-11) are {Q : Q(A) <= g(P(A)) for all A}. The

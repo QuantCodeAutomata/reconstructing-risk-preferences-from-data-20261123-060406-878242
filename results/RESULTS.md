@@ -180,8 +180,9 @@ formula, so these rows are marked "not reproduced" with an identified cause.
   of training points, the ratio of the quote gap to the L^2 distance between
   their centered claims (a discretized dual/LP relaxation of Definition 2.3).
   This matches the exact-interpolation requirement (training MSE = 0) in
-  Experiments 1–3 but is suspected to be the source of the unidentified
-  discrepancy in Experiment 4, where the data is not a risk field.
+  Experiments 1–3, and the same Gram-matrix evaluation is the identified
+  source of the float64 cancellation floor discussed under Experiment 3
+  above.
 - Experiment 4: the paper does not restate N (number of training strikes),
   the number of repetitions, or the value of alpha for the ES_alpha measure
   in Sec. 3.2. We reused N = 100 and 30 repetitions from the main
@@ -189,11 +190,14 @@ formula, so these rows are marked "not reproduced" with an identified cause.
   0 < alpha < 1). These choices do not explain the order-of-magnitude gap
   reported above, since the qualitative trend (monotone growth with gamma,
   exact fit at gamma = 0) is preserved regardless of alpha or the repetition
-  count.
+  count; the identified cause of that gap (the degenerate reduced-claim
+  structure forced by S_1 ∈ [1, 10), K_n ∈ (0, 1)) is discussed under
+  Experiment 4 above.
 - Experiment 3's reported MSE and OOD ratios reproduce the paper's
   qualitative claim (orders of magnitude smaller than GBM/Heston) but not its
   exact numerical scale (~1e-30 in the paper versus 1e-27–1e-8 here); the
-  cause was not identified.
+  identified cause (float64 cancellation in the risk-field feasibility check)
+  is discussed under Experiment 3 above.
 - The monotone hull of Corollary 2.8 is not applied in any experiment: the
   paper's numerical illustrations in Sec. 3 do not state that it is used, and
   Definition 2.5 / Theorem 2.6 (the construction actually evaluated) do not
@@ -205,10 +209,12 @@ formula, so these rows are marked "not reproduced" with an identified cause.
 
 ## Not reproduced
 
-Nothing from the selected experiments is entirely unreproduced: all four
+Nothing from these four experiments is entirely unreproduced: all four
 produce the metrics the paper reports (training MSE, test MSE, OOD ratio, or
 their Experiment-4 analogues) on every risk-measure family and model. The
 exact numerical scale of Experiment 3 (~1e-30) and the growth rate of
-Experiment 4's errors with gamma could not be matched quantitatively; see
-"Deviations from the paper" above for what was checked and what remains
-unidentified.
+Experiment 4's errors with gamma do not match the paper's reported values,
+but both gaps now have an identified cause (float64 cancellation in the
+risk-field feasibility check for Experiment 3; the degenerate reduced-claim
+structure forced by Sec. 3.2's domain restriction for Experiment 4); see
+"Deviations from the paper" above.

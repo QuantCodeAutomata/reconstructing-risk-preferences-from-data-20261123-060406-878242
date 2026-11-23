@@ -8,7 +8,7 @@ distortion representation
     rho(X) = - sum_{i=1}^{I} x_(i) * (g(i / I) - g((i - 1) / I)),
 
 where x_(1) <= ... <= x_(I) are the sorted values of X and g is the concave
-distortion of the family (Sec. 3, p. 10-11, and implementation notes).
+distortion of the family (Sec. 3, p. 10-11).
 """
 
 from __future__ import annotations
