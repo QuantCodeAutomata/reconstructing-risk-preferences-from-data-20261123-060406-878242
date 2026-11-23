@@ -105,6 +105,10 @@ GAMMA_GRID = np.round(np.arange(0.0, 1.0 + 1e-9, 0.1), 1)  # gamma in {0.0, ...,
 EXP4_ALPHA = 0.75  # ES confidence level for the perturbed preference (3.2); only "0 < alpha < 1" is stated
 EXP4_N_TRAIN = N_TRAIN_PAPER  # N is not explicitly restated for exp_4; reuse the paper's N = 100
 EXP4_N_REPS = N_REPS_RUN      # repetition count is not stated for exp_4; reuse the main N_REPS_RUN
-EXP4_I = DISCRETE_I           # S_1 uses the same discrete grid, I = 10^3 (Sec. 3.2)
 EXP4_STRIKE_LOW = 0.0   # training/test strikes 0 < K_1 < ... < K_N < 1 are sampled uniformly on (0, 1)
 EXP4_STRIKE_HIGH = 1.0
+# Sec. 3.2: "S_1 is uniformly distributed on {1 + 9i/I}_{i=0}^{I-1} with
+# I = 10^3; both in the training and test set" -- the same grid as exp_3.
+EXP4_I = DISCRETE_I
+EXP4_GRID_LOW = DISCRETE_LOW
+EXP4_GRID_WIDTH = DISCRETE_WIDTH

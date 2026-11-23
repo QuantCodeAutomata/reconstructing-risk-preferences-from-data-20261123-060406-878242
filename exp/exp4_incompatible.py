@@ -14,9 +14,9 @@ import numpy as np
 import pandas as pd
 
 from src.config import (
-    DISCRETE_LOW,
-    DISCRETE_WIDTH,
     EXP4_ALPHA,
+    EXP4_GRID_LOW,
+    EXP4_GRID_WIDTH,
     EXP4_I,
     EXP4_N_REPS,
     EXP4_N_TRAIN,
@@ -44,11 +44,11 @@ def main(n_reps: int = EXP4_N_REPS, m_dual: int = M_DUAL_RUN) -> None:
     rng = np.random.default_rng(RANDOM_SEED)
 
     t0 = time.time()
-    s1_sample = discrete_grid(EXP4_I, DISCRETE_LOW, DISCRETE_WIDTH)
+    s1_sample = discrete_grid(EXP4_I, EXP4_GRID_LOW, EXP4_GRID_WIDTH)
     log.info(
         "exp_4: discrete grid I=%d in [%.1f, %.1f); strikes uniform in (%.2f, %.2f), "
         "gamma in %s, alpha=%.2f",
-        EXP4_I, DISCRETE_LOW, DISCRETE_LOW + DISCRETE_WIDTH,
+        EXP4_I, EXP4_GRID_LOW, EXP4_GRID_LOW + EXP4_GRID_WIDTH,
         EXP4_STRIKE_LOW, EXP4_STRIKE_HIGH, GAMMA_GRID.tolist(), EXP4_ALPHA,
     )
 

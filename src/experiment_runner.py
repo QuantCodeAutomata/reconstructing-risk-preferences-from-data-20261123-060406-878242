@@ -179,10 +179,18 @@ def run_incompatible_experiment(
     for rep in range(n_reps):
         # The strike set (and hence the Lipschitz constant L_*(D_N) computed
         # from the gamma=0, genuinely risk-field data) is held fixed across
-        # the gamma grid for a given repetition (Sec. 3.2, p. 13).
+        # the gamma grid for a given repetition (Sec. 3.2, p. 13). Footnote 3
+        # shows that for N >= 2 and gamma > 0 no convex, cash-additive risk
+        # measure is compatible with D_N, i.e. L_*(D_N) is not finite for
+        # gamma > 0: "the best available L" (methodology step (d)) is thus
+        # the L_*(D_N) computed once from the gamma = 0 data, reused as-is.
+        #
+        # Eq. 3.2: y_n = ES_alpha((S_1-K_n)_+) + gamma*(1-K_n^2)/2, i.e. ES is
+        # applied to the *long* call payoff (S_1-K_n)_+ = -X_n, not to the
+        # claim X_n = -(S_1-K_n)_+ itself (Eq. 3.3: ES_alpha(-X) + ...).
         k_train = np.sort(rng.uniform(strike_low, strike_high, size=n_train))
         x_train = short_call_payoffs(s1_sample, k_train)
-        es_part = risk_measure(x_train, "ES", alpha)
+        es_part = risk_measure(-x_train, "ES", alpha)
         y_train_0 = es_part  # gamma = 0 is a genuine risk field (Sec. 3.2)
         lipschitz = optimal_lipschitz_constant(x_train, y_train_0, lipschitz_bound)
 
@@ -195,7 +203,7 @@ def run_incompatible_experiment(
 
             k_test = np.sort(rng.uniform(strike_low, strike_high, size=n_train // 10 or 1))
             x_test = short_call_payoffs(s1_sample, k_test)
-            es_part_test = risk_measure(x_test, "ES", alpha)
+            es_part_test = risk_measure(-x_test, "ES", alpha)
             y_test = es_part_test + gamma * (1.0 - k_test ** 2) / 2.0
             test_pred = urm.evaluate_exact(x_test)
             test_mse = mse(test_pred, y_test)

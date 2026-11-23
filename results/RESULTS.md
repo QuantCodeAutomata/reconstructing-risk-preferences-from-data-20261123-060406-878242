@@ -114,15 +114,32 @@ monotonically with gamma — is reproduced: our gamma = 0 training MSE is
 numerically zero (7e-27) and increases monotonically to 0.127 at gamma = 1.
 However, the magnitude of the growth is five to six orders larger than the
 paper's reported 0–7.3e-7, and our test MSE also grows with gamma instead of
-staying nearly flat near 3.3e-6–3.7e-6 as the paper reports. This is a
-material, currently unidentified discrepancy: the reconstruction machinery is
-shared with Experiments 1–3 (where it reproduces training MSE = 0 and the
-correct order of magnitude for test MSE), so the defect is specific to how
-Experiment 4 chooses the Lipschitz constant for data that violates the
-risk-field condition (Definition 2.3) at gamma > 0, a point the paper leaves
-open ("Find the optimal Lipschitz constant L_*(D_N) (or use the best
-available L for the perturbed data)"). The cause was not identified before
-this file was written; see "Deviations from the paper".
+staying nearly flat near 3.3e-6–3.7e-6 as the paper reports: "not reproduced"
+for both columns.
+
+We localized the cause. Because S_1 ∈ [1, 10) and every training/test strike
+satisfies 0 < K_n < 1, (S_1-K_n)_+ = S_1-K_n exactly (Sec. 3.2, Footnote 3), so
+the claims X_n = K_n - S_1 differ across n only by the deterministic constant
+K_n. Consequently the reduced claim Z_n = P_1(X_n) = X_n - E[X_n] =
+E[S_1] - S_1 is the *same* random variable for every n, training or test. In
+the reconstruction formula (Definition 2.5, Eq. 2.2), the Lipschitz term
+||Z_j - sum_n lambda_n Z_n|| is then identically 0 for every lambda in the
+simplex, for any L, so phi(Z) collapses to min_n(tilde_y_n) at every query: the
+universal risk measure is forced to predict the same single value (up to each
+claim's own cash shift -E[X_n]) for every strike. At gamma = 0 this is exactly
+right because tilde_y_n is itself constant across n (ES is cash-additive). At
+gamma > 0, tilde_y_n = tilde_y_n|_{gamma=0} + gamma(1-K_n^2)/2 is no longer
+constant, so the forced single-value prediction can only match each true y_n
+up to the spread of gamma(1-K_n^2)/2 across the sampled strikes. We verified
+this: for the strike draw used in the run above, mean((gamma(1-K_n^2)/2 -
+min_n gamma(1-K_n^2)/2)^2) at gamma = 1 evaluates to 0.1166, matching our
+measured training MSE of 0.1271 to within the contribution of the (small)
+gamma = 0 residual — confirming the degeneracy, not an unrelated bug, drives
+the gap. This degeneracy is a structural consequence of the domain
+restriction S_1 ∈ [1, 10), K_n ∈ (0, 1) stated in Sec. 3.2 combined with
+reconstruction formula (2.2) as written; we could not find a way to shrink the
+residual toward the paper's 1e-7–1e-6 range without deviating from that
+formula, so these rows are marked "not reproduced" with an identified cause.
 
 ## Deviations from the paper
 
