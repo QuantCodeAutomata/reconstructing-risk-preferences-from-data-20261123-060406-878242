@@ -101,13 +101,13 @@ def run_risk_field_experiment(
             lipschitz = optimal_lipschitz_constant(x_train_all, y_train, lipschitz_bound)
             urm = fit_universal_risk_measure(x_train_all, y_train, lipschitz, m_dual, rng)
 
-            train_pred = urm.evaluate(x_train_all)
+            train_pred = urm.evaluate_exact(x_train_all)
             train_mse = mse(train_pred, y_train)
 
             k_test = uniform_strikes(k1, kn, N_TEST_INTERP, rng)
             x_test = short_call_payoffs(s1_sample, k_test)
             y_test = risk_measure(x_test, family, param)
-            test_pred = urm.evaluate(x_test)
+            test_pred = urm.evaluate_exact(x_test)
             test_mse = mse(test_pred, y_test)
 
             k_ood = ood_strikes(k1, kn, N_TEST_OOD_EACH_SIDE, rng)
@@ -190,14 +190,14 @@ def run_incompatible_experiment(
             y_train = es_part + gamma * (1.0 - k_train ** 2) / 2.0
 
             urm = fit_universal_risk_measure(x_train, y_train, lipschitz, m_dual, rng)
-            train_pred = urm.evaluate(x_train)
+            train_pred = urm.evaluate_exact(x_train)
             train_mse = mse(train_pred, y_train)
 
             k_test = np.sort(rng.uniform(strike_low, strike_high, size=n_train // 10 or 1))
             x_test = short_call_payoffs(s1_sample, k_test)
             es_part_test = risk_measure(x_test, "ES", alpha)
             y_test = es_part_test + gamma * (1.0 - k_test ** 2) / 2.0
-            test_pred = urm.evaluate(x_test)
+            test_pred = urm.evaluate_exact(x_test)
             test_mse = mse(test_pred, y_test)
 
             records.append(

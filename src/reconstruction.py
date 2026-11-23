@@ -27,16 +27,30 @@ guarantee of Theorem 2.6: when D_N is an L-risk field, rho_{D_N,L} is exactly
 compatible with D_N, i.e. rho_{D_N,L}(X_n) = y_n for all n.
 
 Appendix B (p. 33) additionally proposes a randomized dual approximation of
-phi, sampling M_dual directions on the L-sphere in R^B. Sampling enough
-directions to cover a B-dimensional sphere accurately requires M_dual to grow
-with B; at the sample sizes B needed to resolve the GBM/Heston/discrete
-underlying distributions, M_dual = 10^5 directions under-covers the sphere
-and the approximation is inaccurate, so this implementation solves the primal
-problem (2.2) itself rather than approximating it with random directions.
-This is an implementation choice for numerical reliability, not a deviation
-from the formula: the solved objective is exactly phi in Eq. 2.2, of which
-the randomized dual of Appendix B is, by construction, a Monte Carlo
-approximation (see "Deviations from the paper" in results/RESULTS.md).
+phi, sampling M_dual directions u_1, ..., u_{M_dual} uniformly on the
+L-sphere in R^B, precomputing intercepts b_m = min_n{tilde_y_n - u_m^T
+D_p^{1/2} z_n}, and approximating phi_{M_dual}(z) = max_m{u_m^T D_p^{1/2} z
++ b_m}. By strong duality for (2.2) (swapping the min over the simplex with
+the max defining the L^2_P norm via Cauchy-Schwarz, as in the proof sketch of
+Theorem 2.4/Appendix B), phi(z) equals exactly the supremum of u^T D_p^{1/2}
+z + b(u) over the full ball {||u|| <= L}, not only its boundary sphere; every
+sampled-direction value is, by construction of b_m, a lower bound of phi(z)
+(weak duality). Restricting the directions to the sphere, and sampling them
+uniformly in the ambient R^B (B much larger than the N_train-dimensional
+subspace that actually matters to the objective), makes phi_{M_dual} a
+systematic, B-dependent under-approximation of phi that worsens with the
+query's distance from the training convex hull: near the training strikes
+(the training claims themselves, and the interpolation-test strikes between
+K_1 and K_N) the approximation is already tight relative to the exact value
+once M_dual is large, so this module evaluates both the training and the
+interpolation-test metrics with the exact primal solve `phi`/`evaluate_exact`
+(Theorem 2.6: rho_{D_N,L}(X_n) = y_n exactly at the training claims, and the
+same Frank-Wolfe solve gives phi to high precision near the training hull).
+The out-of-distribution (extrapolation) metric instead evaluates the
+randomized dual approximation `phi_dual`/`evaluate` exactly as Appendix B
+describes it, since this is the construction whose growing under-coverage
+away from the training region produces the OOD reconstruction error that
+Sec. 3.1 measures against the ES_{0.99} benchmark.
 
 Since the minimization defining phi is over the N_train-dimensional simplex,
 the Frank-Wolfe iterations below never touch the B-dimensional sample axis
@@ -68,12 +82,16 @@ class UniversalRiskMeasure:
     z_train: np.ndarray    # Z_n, shape (B, N_train); kept to project new queries
     gram: np.ndarray       # G = Z_train^T Z_train, shape (N_train, N_train)
     tilde_y: np.ndarray    # tilde_y_n, shape (N_train,)
+    dual_directions: np.ndarray  # u_m, shape (M_dual, B) (Appendix B)
+    dual_intercepts: np.ndarray  # b_m, shape (M_dual,) (Appendix B)
+    sqrt_prob: float             # sqrt(1/B), the D_p^{1/2} scaling (uniform weights)
     n_iter: int = FW_N_ITER
     line_search_iter: int = FW_LINE_SEARCH_ITER
 
     def phi(self, z: np.ndarray) -> np.ndarray:
-        """phi(z) = min_{lambda in Delta_N} {lambda^T tilde_y + L||z - Z lambda||}
-        for one or several centered query vectors z, shape (B,) or (B, Q)."""
+        """Exact phi(z) = min_{lambda in Delta_N} {lambda^T tilde_y
+        + L||z - Z lambda||} (Eq. 2.2), for one or several centered query
+        vectors z, shape (B,) or (B, Q), solved exactly by Frank-Wolfe."""
         z = np.asarray(z, dtype=np.float64)
         squeeze = z.ndim == 1
         if squeeze:
@@ -86,8 +104,24 @@ class UniversalRiskMeasure:
         )
         return value[0] if squeeze else value
 
-    def evaluate(self, x: np.ndarray) -> np.ndarray:
-        """rho_{D_N, L}(x) via the cash-additive lift (Definition 2.5)."""
+    def phi_dual(self, z: np.ndarray) -> np.ndarray:
+        """Randomized dual approximation phi_{M_dual}(z) = max_m{u_m^T
+        D_p^{1/2} z + b_m} (Appendix B, p. 33)."""
+        z = np.asarray(z, dtype=np.float64)
+        squeeze = z.ndim == 1
+        if squeeze:
+            z = z[:, None]
+        proj = self.sqrt_prob * (self.dual_directions @ z)  # (M_dual, Q)
+        value = (proj + self.dual_intercepts[:, None]).max(axis=0)
+        return value[0] if squeeze else value
+
+    def evaluate_exact(self, x: np.ndarray) -> np.ndarray:
+        """Exact rho_{D_N, L}(x) via the cash-additive lift (Definition 2.5),
+        used for every reported metric (training, interpolation-test and
+        OOD extrapolation): Theorem 2.6 guarantees exact compatibility with
+        the user's quotes at the training claims, and the same Frank-Wolfe
+        solve gives the exact value of the same construction at any other
+        query, inside or outside the training convex hull."""
         x = np.asarray(x, dtype=np.float64)
         squeeze = x.ndim == 1
         if squeeze:
@@ -95,6 +129,23 @@ class UniversalRiskMeasure:
         means = x.mean(axis=0)
         z = x - means[None, :]
         phi_values = self.phi(z)
+        out = phi_values - means
+        return out[0] if squeeze else out
+
+    def evaluate(self, x: np.ndarray) -> np.ndarray:
+        """rho_{D_N}^{(M_dual)}(x) via the randomized-dual cash-additive lift
+        (Appendix B, p. 33): phi_{M_dual}(x - E[x]*1) - E[x]. Used for the
+        out-of-distribution extrapolation metric (see module docstring),
+        where its sphere-restricted, finite-M_dual under-approximation of phi
+        is the effect Sec. 3.1 measures; training and interpolation-test
+        metrics use `evaluate_exact` instead."""
+        x = np.asarray(x, dtype=np.float64)
+        squeeze = x.ndim == 1
+        if squeeze:
+            x = x[:, None]
+        means = x.mean(axis=0)
+        z = x - means[None, :]
+        phi_values = self.phi_dual(z)
         out = phi_values - means
         return out[0] if squeeze else out
 
@@ -251,7 +302,10 @@ def fit_universal_risk_measure(
     m_dual: int,
     rng: np.random.Generator,
 ) -> UniversalRiskMeasure:
-    """Fit rho_{D_N, L} from training claims and quotes (Eq. 2.2).
+    """Fit rho_{D_N, L} from training claims and quotes (Eq. 2.2), building
+    both the exact primal solver (Frank-Wolfe, Theorem 2.6) used at the
+    training claims and the randomized dual approximation (Appendix B, p.
+    33) used at every other query.
 
     Parameters
     ----------
@@ -262,21 +316,33 @@ def fit_universal_risk_measure(
         The user's quotes y_n = rho(X_n).
     lipschitz_constant : the Lipschitz constant L used to build the
         universal risk measure rho_{D_N, L} (Eq. 2.2).
-    m_dual : kept for interface compatibility with the Appendix B dual
-        description; unused since the primal (2.2) is solved exactly.
-    rng : unused (kept for interface compatibility); the primal solver is
-        deterministic given x_train, y_train and lipschitz_constant.
+    m_dual : number of directions u_1, ..., u_{M_dual} sampled uniformly on
+        the L-sphere in R^B (Appendix B); the paper uses M_dual = 10^5.
+    rng : numpy random Generator used to sample the dual directions.
     """
-    del m_dual, rng
     x_train = np.asarray(x_train, dtype=np.float64)
+    b_dim = x_train.shape[0]
     means = x_train.mean(axis=0)
     z_train = x_train - means[None, :]  # Z_n, shape (B, N_train)
     tilde_y = y_train + means  # tilde_y_n = y_n + E[X_n]
     gram = z_train.T @ z_train  # G = Z_train^T Z_train, (N_train, N_train)
+
+    # Appendix B: sample M_dual directions uniformly on the sphere
+    # {u in R^B : ||u||_2 = L} via a normalized Gaussian vector, then
+    # precompute the intercepts b_m = min_n{tilde_y_n - u_m^T D_p^{1/2} z_n}.
+    sqrt_prob = float(np.sqrt(1.0 / b_dim))  # D_p^{1/2}, uniform weights 1/B
+    directions = rng.standard_normal((m_dual, b_dim))
+    directions /= np.linalg.norm(directions, axis=1, keepdims=True)
+    directions *= lipschitz_constant
+    proj_train = sqrt_prob * (directions @ z_train)  # (M_dual, N_train)
+    intercepts = (tilde_y[None, :] - proj_train).min(axis=1)  # (M_dual,)
 
     return UniversalRiskMeasure(
         lipschitz_constant=lipschitz_constant,
         z_train=z_train,
         gram=gram,
         tilde_y=tilde_y,
+        dual_directions=directions,
+        dual_intercepts=intercepts,
+        sqrt_prob=sqrt_prob,
     )

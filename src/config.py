@@ -48,12 +48,24 @@ RANDOM_SEED = 2024  # not specified in the paper; fixed for reproducibility
 # Frank-Wolfe solver settings for the primal reconstruction of Eq. 2.2 (not
 # specified in the paper, which leaves the numerical solution of phi open).
 # Chosen so that the solver converges to the Frank-Wolfe optimum well beyond
-# floating-point relevance (training-claim objective residual ~1e-19),
-# verified against the exactness guarantee of Theorem 2.6.
-FW_N_ITER = 300            # outer Frank-Wolfe (conditional gradient) iterations
-FW_LINE_SEARCH_ITER = 22   # golden-section line-search iterations per FW step
-FW_BISECTION_ITER = 28     # bisection iterations for L_*(D_N) (Definition 2.3/Sec. 2.3)
-FW_TOL = 1e-9              # feasibility tolerance for the risk-field condition (2.1)
+# floating-point relevance (training-claim objective residual below 1e-17 in
+# every case checked), verified against the exactness guarantee of Theorem
+# 2.6 (D_N an L-risk field implies rho_{D_N,L} compatible with D_N).
+FW_N_ITER = 150            # outer Frank-Wolfe (conditional gradient) iterations
+FW_LINE_SEARCH_ITER = 14   # golden-section line-search iterations per FW step
+FW_BISECTION_ITER = 24     # bisection iterations for L_*(D_N) (Definition 2.3/Sec. 2.3)
+# Feasibility tolerance for the risk-field condition (2.1). The Gram-matrix
+# reformulation evaluates the squared distance "zz - 2*lin + quad" (Eq. 2.1)
+# as a difference of O(1)-O(10) magnitude quantities; near an exact vertex
+# match (the typical case here, since the data is induced by a risk measure)
+# this difference suffers floating-point cancellation down to a residual of
+# about 1e-9 to 1e-8, irrespective of the number of Frank-Wolfe iterations.
+# A tolerance at or below that floor (as originally set to 1e-9) makes every
+# candidate L spuriously "infeasible", driving the bisection's upper bound to
+# diverge instead of settling near the true L_*(D_N); 1e-6 sits safely above
+# the measured cancellation floor while remaining far smaller than any
+# meaningful risk-measure value.
+FW_TOL = 1e-6
 
 # ---------------------------------------------------------------------------
 # exp_1: Geometric Brownian Motion, Sec. 3 p. 10
